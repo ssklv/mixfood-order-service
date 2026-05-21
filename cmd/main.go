@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/adaptor"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/joho/godotenv"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 
+	_ "github.com/ssklv/mixfood-order-service/docs"
 	"github.com/ssklv/mixfood-order-service/internal/config"
 	"github.com/ssklv/mixfood-order-service/internal/handlers"
 	"github.com/ssklv/mixfood-order-service/internal/infrastructure"
@@ -22,11 +23,11 @@ type zapAdapter struct{}
 func (za *zapAdapter) Error(msg string, fields ...any) { logger.Logger.Error(msg) }
 func (za *zapAdapter) Warn(msg string, fields ...any)  { logger.Logger.Warn(msg) }
 
-// @title MixFood Order Service API
-// @version 1.0
-// @description Сервис заказов для доставки еды
-// @host localhost:8083
-// @BasePath /
+// @title       MixFood Order Service API
+// @version     1.0
+// @description Микросервис для управления заказами в системе MixFood.
+// @host        localhost:8083
+// @BasePath    /
 func main() {
 	logger.InitLogger()
 	defer logger.Logger.Sync()
@@ -42,7 +43,15 @@ func main() {
 		AppName: "MixFood Order Service v1.0",
 	})
 
-	app.Get("/docs/*", adaptor.HTTPHandler(http.StripPrefix("/docs/", http.FileServer(http.Dir("./docs")))))
+	// Раздаем UI Swagger через адаптер стандартной библиотеки net/http
+	app.Get("/swagger/*", adaptor.HTTPHandler(httpSwagger.Handler(
+		httpSwagger.URL("/docs/swagger.json"), // Указываем UI, где забирать схему
+	)))
+
+	// Эндпоинт, который отдает сам файлик спецификации swagger.json
+	app.Get("/docs/swagger.json", func(c fiber.Ctx) error {
+		return c.SendFile("./docs/swagger.json")
+	})
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
@@ -56,17 +65,14 @@ func main() {
 	}
 	defer conn.Close()
 
-	// Исправлено: используем твой реальный TokenProvider (принимает только секрет)
 	tokenProvider := infrastructure.NewTokenProvider(cfg.JWTSecret)
 	wsHub := infrastructure.NewWsHub()
-	// Строку go wsHub.Run() убрали, так как твоему хабу фоновый цикл не нужен
 
 	orderRepo := infrastructure.NewOrderRepository(conn, psql)
 	orderUsecase := usecase.NewOrderUsecase(orderRepo, wsHub)
 
 	logAdapter := &zapAdapter{}
 
-	// Передаем правильный OrderHandler (с большой буквы)
 	orderHandler := handlers.NewOrderHandler(orderUsecase, tokenProvider, wsHub, logAdapter)
 	orderHandler.RegisterRoutes(app)
 

@@ -1,0 +1,142 @@
+basePath: /
+definitions:
+  domain.CreateOrderInput:
+    properties:
+      address_id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/domain.OrderItem'
+        type: array
+    type: object
+  domain.Order:
+    properties:
+      address_id:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/domain.OrderItem'
+        type: array
+      status:
+        type: string
+      total_price:
+        type: number
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  domain.OrderItem:
+    properties:
+      id:
+        type: integer
+      order_id:
+        type: integer
+      price:
+        type: number
+      product_id:
+        type: integer
+      quantity:
+        type: integer
+    type: object
+host: localhost:8082
+info:
+  contact: {}
+  description: Микросервис для управления заказами в системе MixFood.
+  title: MixFood Order Service API
+  version: "1.0"
+paths:
+  /api/v1/orders:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает историю заказов текущего авторизованного пользователя
+        с пагинацией
+      parameters:
+      - description: Bearer JWT Token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Количество заказов (default 10)
+        in: query
+        name: limit
+        type: integer
+      - description: Смещение (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Order'
+            type: array
+        "401":
+          description: Неавторизован
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получение заказов пользователя
+      tags:
+      - orders
+    post:
+      consumes:
+      - application/json
+      description: Принимает корзину товаров и адрес, высчитывает стоимость и создает
+        заказ
+      parameters:
+      - description: Bearer JWT Token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Данные для создания заказа
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateOrderInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Order'
+        "400":
+          description: Невалидные входные данные
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Пользователь не авторизован
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Создание нового заказа
+      tags:
+      - orders
+swagger: "2.0"

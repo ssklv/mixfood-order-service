@@ -11,7 +11,6 @@ import (
 	"github.com/ssklv/mixfood-order-service/internal/usecase"
 )
 
-// Logger описывает интерфейс логгера, чтобы хендлер мог писать ошибки через твой zapAdapter
 type Logger interface {
 	Error(msg string, fields ...any)
 	Warn(msg string, fields ...any)
@@ -24,7 +23,6 @@ type OrderHandler struct {
 	logger      Logger
 }
 
-// NewOrderHandler теперь принимает ВСЕ зависимости, которые мы передаем из main.go
 func NewOrderHandler(uc *usecase.OrderUsecase, tokenParser usecase.TokenParser, wsHub *infrastructure.WsHub, logger Logger) *OrderHandler {
 	return &OrderHandler{
 		uc:          uc,
@@ -34,7 +32,6 @@ func NewOrderHandler(uc *usecase.OrderUsecase, tokenParser usecase.TokenParser, 
 	}
 }
 
-// RegisterRoutes регистрирует все эндпоинты, включая вебсокеты и мидлвари проверки токенов
 func (h *OrderHandler) RegisterRoutes(app *fiber.App) {
 	api := app.Group("/api/v1")
 
@@ -55,7 +52,6 @@ func (h *OrderHandler) RegisterRoutes(app *fiber.App) {
 		return c.Next()
 	}
 
-	// Инлайн-мидлварь админа
 	adminRequired := func(c fiber.Ctx) error {
 		role, ok := c.Locals("role").(string)
 		if !ok || role != "admin" {
@@ -64,7 +60,6 @@ func (h *OrderHandler) RegisterRoutes(app *fiber.App) {
 		return c.Next()
 	}
 
-	// 1. ВЕБСОКЕТЫ
 	api.Get("/ws/orders",
 		authRequired,
 		websocket.New(func(c *websocket.Conn) {
@@ -79,18 +74,28 @@ func (h *OrderHandler) RegisterRoutes(app *fiber.App) {
 		}),
 	)
 
-	// 2. КЛИЕНТСКИЕ РОУТЫ
 	orders := api.Group("/orders", authRequired)
 	orders.Post("", h.CreateOrder)
 	orders.Get("", h.GetUserOrders)
 
-	// 3. АДМИНСКИЕ РОУТЫ
 	admin := api.Group("/admin/orders", authRequired, adminRequired)
 	admin.Get("", h.GetAdminOrders)
 	admin.Patch("/:id/status", h.UpdateStatus)
 }
 
 // CreateOrder обрабатывает POST /api/v1/orders
+// @Summary      Создание нового заказа
+// @Description  Принимает корзину товаров и адрес, высчитывает стоимость и создает заказ
+// @Tags         orders
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header    string                  true  "Bearer JWT Token"
+// @Param        input          body      domain.CreateOrderInput true  "Данные для создания заказа"
+// @Success      201            {object}  domain.Order
+// @Failure      400            {object}  map[string]string       "Невалидные входные данные"
+// @Failure      401            {object}  map[string]string       "Пользователь не авторизован"
+// @Failure      500            {object}  map[string]string       "Внутренняя ошибка сервера"
+// @Router       /api/v1/orders [post]
 func (h *OrderHandler) CreateOrder(c fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(int64)
 	if !ok {
@@ -119,6 +124,18 @@ func (h *OrderHandler) CreateOrder(c fiber.Ctx) error {
 }
 
 // GetUserOrders обрабатывает GET /api/v1/orders
+// @Summary      Получение заказов пользователя
+// @Description  Возвращает историю заказов текущего авторизованного пользователя с пагинацией
+// @Tags         orders
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header    string  true   "Bearer JWT Token"
+// @Param        limit          query     int     false  "Количество заказов (default 10)"
+// @Param        offset         query     int     false  "Смещение (default 0)"
+// @Success      200            {array}   domain.Order
+// @Failure      401            {object}  map[string]string "Неавторизован"
+// @Failure      500            {object}  map[string]string "Внутренняя ошибка"
+// @Router       /api/v1/orders [get]
 func (h *OrderHandler) GetUserOrders(c fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(int64)
 	if !ok {
