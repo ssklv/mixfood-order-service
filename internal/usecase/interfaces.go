@@ -18,3 +18,7 @@ type OrderRepository interface {
 type NotificationHub interface {
 	NotifyUser(userID int64, message interface{})
 }
+
+type TokenParser interface {
+	ParseToken(tokenString string) (int64, string, error)
+}
