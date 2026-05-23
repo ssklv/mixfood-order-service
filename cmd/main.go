@@ -43,12 +43,10 @@ func main() {
 		AppName: "MixFood Order Service v1.0",
 	})
 
-	// Раздаем UI Swagger через адаптер стандартной библиотеки net/http
 	app.Get("/swagger/*", adaptor.HTTPHandler(httpSwagger.Handler(
-		httpSwagger.URL("/docs/swagger.json"), // Указываем UI, где забирать схему
+		httpSwagger.URL("/docs/swagger.json"),
 	)))
 
-	// Эндпоинт, который отдает сам файлик спецификации swagger.json
 	app.Get("/docs/swagger.json", func(c fiber.Ctx) error {
 		return c.SendFile("./docs/swagger.json")
 	})

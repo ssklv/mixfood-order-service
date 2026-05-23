@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// Тест 1: Успешное создание заказа
 func TestCreateOrder_Success(t *testing.T) {
 	repo := NewMockOrderRepository(t)
 	hub := NewMockNotificationHub(t)
@@ -22,10 +21,11 @@ func TestCreateOrder_Success(t *testing.T) {
 	uc := NewOrderUsecase(repo, hub)
 
 	input := domain.CreateOrderInput{
-		AddressID: 10,
+		AddressID:    10,
+		DeliveryTime: "18:30",
 		Items: []domain.OrderItem{
-			{ProductID: 1, Quantity: 2, Price: 250.00}, // 500
-			{ProductID: 2, Quantity: 1, Price: 150.00}, // 150
+			{ProductID: 1, Quantity: 2, Price: 250.00},
+			{ProductID: 2, Quantity: 1, Price: 150.00},
 		},
 	}
 
@@ -36,19 +36,22 @@ func TestCreateOrder_Success(t *testing.T) {
 	assert.Equal(t, int64(100), order.ID)
 	assert.Equal(t, 650.00, order.TotalPrice)
 	assert.Equal(t, "new", order.Status)
+	assert.Equal(t, "18:30", order.DeliveryTime)
 	repo.AssertExpectations(t)
 }
 
-// Тест 2: Защита от создания пустого заказа (если ValidateCreateOrder вернет ошибку)
-func TestCreateOrder_EmptyCart(t *testing.T) {
+func TestCreateOrder_InvalidTime(t *testing.T) {
 	repo := NewMockOrderRepository(t)
 	hub := NewMockNotificationHub(t)
 
 	uc := NewOrderUsecase(repo, hub)
 
 	input := domain.CreateOrderInput{
-		AddressID: 10,
-		Items:     []domain.OrderItem{}, // Пусто, сработает валидация
+		AddressID:    10,
+		DeliveryTime: "asap",
+		Items: []domain.OrderItem{
+			{ProductID: 1, Quantity: 2, Price: 250.00},
+		},
 	}
 
 	_, err := uc.CreateOrder(context.Background(), 42, input)
@@ -57,17 +60,15 @@ func TestCreateOrder_EmptyCart(t *testing.T) {
 	repo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 }
 
-// Тест 3: Успешное получение заказов пользователя + проверка дефолтной пагинации
 func TestGetUserOrders_Success(t *testing.T) {
 	repo := NewMockOrderRepository(t)
 	hub := NewMockNotificationHub(t)
 	uc := NewOrderUsecase(repo, hub)
 
 	expectedOrders := []domain.Order{
-		{ID: 1, UserID: 42, TotalPrice: 500.0},
+		{ID: 1, UserID: 42, TotalPrice: 500.0, DeliveryTime: "18:30"},
 	}
 
-	// Передаем лимиты <= 0, чтобы проверить, что сработает логика подстановки дефолтных (limit=10, offset=0)
 	repo.On("GetByUserID", mock.Anything, int64(42), 10, 0).Return(expectedOrders, nil)
 
 	orders, err := uc.GetUserOrders(context.Background(), 42, 0, -1)
@@ -77,17 +78,15 @@ func TestGetUserOrders_Success(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-// Тест 4: Успешное получение админских заказов + проверка дефолтного лимита 20
 func TestGetAdminOrders_Success(t *testing.T) {
 	repo := NewMockOrderRepository(t)
 	hub := NewMockNotificationHub(t)
 	uc := NewOrderUsecase(repo, hub)
 
 	expectedOrders := []domain.Order{
-		{ID: 1, TotalPrice: 500.0},
+		{ID: 1, TotalPrice: 500.0, DeliveryTime: "18:30"},
 	}
 
-	// Проверяем дефолтные параметры для админа (limit=20, offset=0)
 	repo.On("GetAllOrders", mock.Anything, 20, 0).Return(expectedOrders, nil)
 
 	orders, err := uc.GetAdminOrders(context.Background(), 0, 0)
@@ -97,7 +96,6 @@ func TestGetAdminOrders_Success(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-// Тест 5: Успешное обновление статуса и отправка вебсокет-оповещения
 func TestUpdateOrderStatus_Success(t *testing.T) {
 	repo := NewMockOrderRepository(t)
 	hub := NewMockNotificationHub(t)
@@ -105,10 +103,8 @@ func TestUpdateOrderStatus_Success(t *testing.T) {
 
 	input := domain.UpdateStatusInput{Status: "cooking"}
 
-	// Репозиторий возвращает ID пользователя = 42
 	repo.On("UpdateStatus", mock.Anything, int64(100), "cooking").Return(int64(42), nil)
 
-	// Проверяем, что хаб вызовет NotifyUser для юзера 42
 	hub.On("NotifyUser", int64(42), mock.Anything).Return()
 
 	err := uc.UpdateOrderStatus(context.Background(), 100, input)
@@ -116,4 +112,22 @@ func TestUpdateOrderStatus_Success(t *testing.T) {
 	assert.NoError(t, err)
 	repo.AssertExpectations(t)
 	hub.AssertExpectations(t)
+}
+
+func TestCreateOrder_EmptyCart(t *testing.T) {
+	repo := NewMockOrderRepository(t)
+	hub := NewMockNotificationHub(t)
+
+	uc := NewOrderUsecase(repo, hub)
+
+	input := domain.CreateOrderInput{
+		AddressID:    10,
+		DeliveryTime: "12:00",
+		Items:        []domain.OrderItem{},
+	}
+
+	_, err := uc.CreateOrder(context.Background(), 42, input)
+
+	assert.Error(t, err)
+	repo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 }

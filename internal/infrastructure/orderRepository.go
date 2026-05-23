@@ -16,6 +16,7 @@ var orderCols = []string{
 	"address_id",
 	"total_price",
 	"status",
+	"delivery_time",
 	"created_at",
 	"updated_at",
 }
@@ -39,6 +40,7 @@ func NewOrderRepository(db *pgxpool.Pool, psql sq.StatementBuilderType) *orderRe
 		psql: psql,
 	}
 }
+
 func (r *orderRepository) Create(ctx context.Context, order *domain.Order) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -46,15 +48,15 @@ func (r *orderRepository) Create(ctx context.Context, order *domain.Order) error
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Создаем основной заказ
 	orderSql, orderArgs, err := r.psql.
 		Insert("orders").
-		Columns(orderCols[1:]...).
+		Columns(orderCols[1:6]...).
 		Values(
 			order.UserID,
 			order.AddressID,
 			order.TotalPrice,
 			order.Status,
+			order.DeliveryTime,
 		).
 		Suffix("RETURNING id, created_at, updated_at").
 		ToSql()
@@ -68,11 +70,10 @@ func (r *orderRepository) Create(ctx context.Context, order *domain.Order) error
 		return err
 	}
 
-	// 2. В цикле сохраняем все позиции корзины
 	for i := range order.Items {
 		itemSql, itemArgs, err := r.psql.
 			Insert("order_items").
-			Columns(orderItemCols[1:]...). // Пропускаем "id"
+			Columns(orderItemCols[1:]...).
 			Values(
 				order.ID,
 				order.Items[i].ProductID,
@@ -191,6 +192,7 @@ func scanOrder(row pgx.Row, o *domain.Order) error {
 		&o.AddressID,
 		&o.TotalPrice,
 		&o.Status,
+		&o.DeliveryTime,
 		&o.CreatedAt,
 		&o.UpdatedAt,
 	)
