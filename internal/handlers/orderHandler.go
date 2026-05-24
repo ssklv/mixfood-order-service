@@ -35,9 +35,8 @@ func NewOrderHandler(uc *usecase.OrderUsecase, tokenParser usecase.TokenParser, 
 func (h *OrderHandler) RegisterRoutes(app *fiber.App) {
 	api := app.Group("/api/v1")
 
-	// Инлайн-мидлварь авторизации (в твоем стиле)
 	authRequired := func(c fiber.Ctx) error {
-		tokenString := c.Cookies("jwt")
+		tokenString := c.Cookies("access_token")
 		if tokenString == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized: missing token"})
 		}
@@ -168,6 +167,18 @@ func (h *OrderHandler) GetUserOrders(c fiber.Ctx) error {
 }
 
 // UpdateStatus обрабатывает PATCH /api/v1/admin/orders/:id/status
+// @Summary      Обновление статуса заказа
+// @Description  Только для администраторов
+// @Tags         admin
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id     path      int                    true  "ID заказа"
+// @Param        input  body      domain.UpdateStatusInput true  "Новый статус"
+// @Success      200    {object}  map[string]string
+// @Failure      400    {object}  map[string]string
+// @Failure      403    {object}  map[string]string
+// @Router       /api/v1/admin/orders/{id}/status [patch]
 func (h *OrderHandler) UpdateStatus(c fiber.Ctx) error {
 	orderIDStr := c.Params("id")
 	orderID, err := strconv.ParseInt(orderIDStr, 10, 64)
@@ -193,6 +204,14 @@ func (h *OrderHandler) UpdateStatus(c fiber.Ctx) error {
 }
 
 // GetAdminOrders обрабатывает GET /api/v1/admin/orders
+// @Summary      Получение всех заказов (для админа)
+// @Tags         admin
+// @Security     BearerAuth
+// @Produce      json
+// @Param        limit  query     int  false  "Лимит"
+// @Param        offset query     int  false  "Смещение"
+// @Success      200    {array}   domain.Order
+// @Router       /api/v1/admin/orders [get]
 func (h *OrderHandler) GetAdminOrders(c fiber.Ctx) error {
 	limitStr := c.Query("limit")
 	limit := 20

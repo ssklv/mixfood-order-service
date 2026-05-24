@@ -15,6 +15,114 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/admin/orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Получение всех заказов (для админа)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Лимит",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Смещение",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.Order"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/orders/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Только для администраторов",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Обновление статуса заказа",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID заказа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Новый статус",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.UpdateStatusInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/orders": {
             "get": {
                 "description": "Возвращает историю заказов текущего авторизованного пользователя с пагинацией",
@@ -55,7 +163,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/domain.Order"
+                                "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.Order"
                             }
                         }
                     },
@@ -105,7 +213,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CreateOrderInput"
+                            "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.CreateOrderInput"
                         }
                     }
                 ],
@@ -113,7 +221,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/domain.Order"
+                            "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.Order"
                         }
                     },
                     "400": {
@@ -148,21 +256,24 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "domain.CreateOrderInput": {
+        "github_com_ssklv_mixfood-order-service_internal_domain.CreateOrderInput": {
             "type": "object",
             "properties": {
                 "address_id": {
                     "type": "integer"
                 },
+                "delivery_time": {
+                    "type": "string"
+                },
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.OrderItem"
+                        "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.OrderItem"
                     }
                 }
             }
         },
-        "domain.Order": {
+        "github_com_ssklv_mixfood-order-service_internal_domain.Order": {
             "type": "object",
             "properties": {
                 "address_id": {
@@ -171,13 +282,16 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "delivery_time": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "integer"
                 },
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.OrderItem"
+                        "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.OrderItem"
                     }
                 },
                 "status": {
@@ -194,7 +308,7 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.OrderItem": {
+        "github_com_ssklv_mixfood-order-service_internal_domain.OrderItem": {
             "type": "object",
             "properties": {
                 "id": {
@@ -213,6 +327,21 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
+        },
+        "github_com_ssklv_mixfood-order-service_internal_domain.UpdateStatusInput": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "CookieAuth": {
+            "type": "apiKey",
+            "name": "jwt",
+            "in": "cookie"
         }
     }
 }`
@@ -220,11 +349,11 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:8082",
+	Host:             "localhost:8083",
 	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "MixFood Order Service API",
-	Description:      "Микросервис для управления заказами в системе MixFood.",
+	Title:            "Mixfood Order Service API",
+	Description:      "API для управления заказами",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

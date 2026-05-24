@@ -23,11 +23,14 @@ type zapAdapter struct{}
 func (za *zapAdapter) Error(msg string, fields ...any) { logger.Logger.Error(msg) }
 func (za *zapAdapter) Warn(msg string, fields ...any)  { logger.Logger.Warn(msg) }
 
-// @title       MixFood Order Service API
-// @version     1.0
-// @description Микросервис для управления заказами в системе MixFood.
-// @host        localhost:8083
-// @BasePath    /
+// @title Mixfood Order Service API
+// @version 1.0
+// @description API для управления заказами
+// @host localhost:8083
+// @BasePath /
+// @securityDefinitions.apikey CookieAuth
+// @in cookie
+// @name jwt
 func main() {
 	logger.InitLogger()
 	defer logger.Logger.Sync()
