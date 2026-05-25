@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/v1/admin/orders": {
+        "/api/admin/orders": {
             "get": {
                 "security": [
                     {
@@ -25,14 +25,89 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
-                "tags": [
-                    "admin"
+                "summary": "Получить все заказы (Только админ)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.Order"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/orders/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
                 ],
-                "summary": "Получение всех заказов (для админа)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Обновить статус заказа (Только админ)",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Лимит",
+                        "description": "ID заказа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Статус",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.UpdateStatusInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Получить список заказов пользователя",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Лимит записей",
                         "name": "limit",
                         "in": "query"
                     },
@@ -54,161 +129,23 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/api/v1/admin/orders/{id}/status": {
-            "patch": {
+            },
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Только для администраторов",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "Обновление статуса заказа",
+                "summary": "Создать новый заказ",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "ID заказа",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Новый статус",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.UpdateStatusInput"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/orders": {
-            "get": {
-                "description": "Возвращает историю заказов текущего авторизованного пользователя с пагинацией",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "orders"
-                ],
-                "summary": "Получение заказов пользователя",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bearer JWT Token",
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Количество заказов (default 10)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Смещение (default 0)",
-                        "name": "offset",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.Order"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Неавторизован",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Принимает корзину товаров и адрес, высчитывает стоимость и создает заказ",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "orders"
-                ],
-                "summary": "Создание нового заказа",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bearer JWT Token",
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "description": "Данные для создания заказа",
+                        "description": "Данные заказа",
                         "name": "input",
                         "in": "body",
                         "required": true,
@@ -225,30 +162,9 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Невалидные входные данные",
+                        "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Пользователь не авторизован",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка сервера",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
                         }
                     }
                 }
@@ -335,25 +251,34 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
-        }
-    },
-    "securityDefinitions": {
-        "CookieAuth": {
-            "type": "apiKey",
-            "name": "jwt",
-            "in": "cookie"
+        },
+        "internal_handlers.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handlers.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
         }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
-	Host:             "localhost:8083",
-	BasePath:         "/",
+	Version:          "",
+	Host:             "",
+	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "Mixfood Order Service API",
-	Description:      "API для управления заказами",
+	Title:            "",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

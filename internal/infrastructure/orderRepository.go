@@ -10,88 +10,52 @@ import (
 	"github.com/ssklv/mixfood-order-service/internal/domain"
 )
 
-var orderCols = []string{
-	"id",
-	"user_id",
-	"address_id",
-	"total_price",
-	"status",
-	"delivery_time",
-	"created_at",
-	"updated_at",
-}
-
-var orderItemCols = []string{
-	"id",
-	"order_id",
-	"product_id",
-	"quantity",
-	"price",
-}
-
 type orderRepository struct {
 	db   *pgxpool.Pool
 	psql sq.StatementBuilderType
 }
 
 func NewOrderRepository(db *pgxpool.Pool, psql sq.StatementBuilderType) *orderRepository {
-	return &orderRepository{
-		db:   db,
-		psql: psql,
-	}
+	return &orderRepository{db: db, psql: psql}
 }
 
 func (r *orderRepository) Create(ctx context.Context, order *domain.Order) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
-		return ErrFailedToBeginTx
+		return err
 	}
 	defer tx.Rollback(ctx)
 
-	orderSql, orderArgs, err := r.psql.
+	sql, args, err := r.psql.
 		Insert("orders").
-		Columns(orderCols[1:6]...).
-		Values(
-			order.UserID,
-			order.AddressID,
-			order.TotalPrice,
-			order.Status,
-			order.DeliveryTime,
-		).
+		Columns("user_id", "address_id", "total_price", "status", "delivery_time").
+		Values(order.UserID, order.AddressID, order.TotalPrice, order.Status, order.DeliveryTime).
 		Suffix("RETURNING id, created_at, updated_at").
 		ToSql()
-
 	if err != nil {
 		return err
 	}
 
-	err = tx.QueryRow(ctx, orderSql, orderArgs...).Scan(&order.ID, &order.CreatedAt, &order.UpdatedAt)
+	err = tx.QueryRow(ctx, sql, args...).Scan(&order.ID, &order.CreatedAt, &order.UpdatedAt)
 	if err != nil {
 		return err
 	}
 
 	for i := range order.Items {
-		itemSql, itemArgs, err := r.psql.
+		sql, args, err := r.psql.
 			Insert("order_items").
-			Columns(orderItemCols[1:]...).
-			Values(
-				order.ID,
-				order.Items[i].ProductID,
-				order.Items[i].Quantity,
-				order.Items[i].Price,
-			).
+			Columns("order_id", "product_id", "quantity", "price").
+			Values(order.ID, order.Items[i].ProductID, order.Items[i].Quantity, order.Items[i].Price).
 			Suffix("RETURNING id").
 			ToSql()
-
 		if err != nil {
 			return err
 		}
 
-		err = tx.QueryRow(ctx, itemSql, itemArgs...).Scan(&order.Items[i].ID)
+		err = tx.QueryRow(ctx, sql, args...).Scan(&order.Items[i].ID)
 		if err != nil {
 			return err
 		}
-		order.Items[i].OrderID = order.ID
 	}
 
 	return tx.Commit(ctx)
@@ -105,7 +69,6 @@ func (r *orderRepository) UpdateStatus(ctx context.Context, orderID int64, statu
 		Where(sq.Eq{"id": orderID}).
 		Suffix("RETURNING user_id").
 		ToSql()
-
 	if err != nil {
 		return 0, err
 	}
@@ -118,20 +81,49 @@ func (r *orderRepository) UpdateStatus(ctx context.Context, orderID int64, statu
 		}
 		return 0, err
 	}
-
 	return userID, nil
+}
+
+func (r *orderRepository) GetAllOrders(ctx context.Context, limit, offset int) ([]domain.Order, error) {
+	// Используем squirrel для построения запроса
+	query, args, err := r.psql.Select("id", "user_id", "address_id", "total_price", "status", "created_at").
+		From("orders").
+		Limit(uint64(limit)).
+		Offset(uint64(offset)).
+		OrderBy("created_at DESC").
+		ToSql()
+
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []domain.Order
+	for rows.Next() {
+		var o domain.Order
+		if err := rows.Scan(&o.ID, &o.UserID, &o.AddressID, &o.TotalPrice, &o.Status, &o.CreatedAt); err != nil {
+			return nil, err
+		}
+		orders = append(orders, o)
+	}
+
+	return orders, nil
 }
 
 func (r *orderRepository) GetByUserID(ctx context.Context, userID int64, limit, offset int) ([]domain.Order, error) {
 	sql, args, err := r.psql.
-		Select(orderCols...).
+		Select("id", "user_id", "address_id", "total_price", "status", "delivery_time", "created_at", "updated_at").
 		From("orders").
 		Where(sq.Eq{"user_id": userID}).
-		OrderBy("created_at DESC").
 		Limit(uint64(limit)).
 		Offset(uint64(offset)).
+		OrderBy("created_at DESC").
 		ToSql()
-
 	if err != nil {
 		return nil, err
 	}
@@ -145,55 +137,29 @@ func (r *orderRepository) GetByUserID(ctx context.Context, userID int64, limit, 
 	var orders []domain.Order
 	for rows.Next() {
 		var o domain.Order
-		if err := scanOrder(rows, &o); err != nil {
+		err := rows.Scan(&o.ID, &o.UserID, &o.AddressID, &o.TotalPrice, &o.Status, &o.DeliveryTime, &o.CreatedAt, &o.UpdatedAt)
+		if err != nil {
 			return nil, err
 		}
 		orders = append(orders, o)
 	}
-
 	return orders, nil
 }
 
-func (r *orderRepository) GetAllOrders(ctx context.Context, limit, offset int) ([]domain.Order, error) {
+func (r *orderRepository) GetOrder(ctx context.Context, id int64) (*domain.Order, error) {
 	sql, args, err := r.psql.
-		Select(orderCols...).
+		Select("id", "user_id", "address_id", "total_price", "status", "delivery_time", "created_at", "updated_at").
 		From("orders").
-		OrderBy("created_at DESC").
-		Limit(uint64(limit)).
-		Offset(uint64(offset)).
+		Where(sq.Eq{"id": id}).
 		ToSql()
-
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := r.db.Query(ctx, sql, args...)
+	var o domain.Order
+	err = r.db.QueryRow(ctx, sql, args...).Scan(&o.ID, &o.UserID, &o.AddressID, &o.TotalPrice, &o.Status, &o.DeliveryTime, &o.CreatedAt, &o.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var orders []domain.Order
-	for rows.Next() {
-		var o domain.Order
-		if err := scanOrder(rows, &o); err != nil {
-			return nil, err
-		}
-		orders = append(orders, o)
-	}
-
-	return orders, nil
-}
-
-func scanOrder(row pgx.Row, o *domain.Order) error {
-	return row.Scan(
-		&o.ID,
-		&o.UserID,
-		&o.AddressID,
-		&o.TotalPrice,
-		&o.Status,
-		&o.DeliveryTime,
-		&o.CreatedAt,
-		&o.UpdatedAt,
-	)
+	return &o, nil
 }

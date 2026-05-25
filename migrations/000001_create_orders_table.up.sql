@@ -1,5 +1,5 @@
 CREATE TABLE orders (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     address_id BIGINT NOT NULL,
     total_price DECIMAL(10, 2) NOT NULL,

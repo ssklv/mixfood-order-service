@@ -5,80 +5,82 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/gofiber/fiber/v3"
-	"github.com/gofiber/fiber/v3/middleware/adaptor"
-	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/joho/godotenv"
-	httpSwagger "github.com/swaggo/http-swagger/v2"
 
-	_ "github.com/ssklv/mixfood-order-service/docs"
 	"github.com/ssklv/mixfood-order-service/internal/config"
 	"github.com/ssklv/mixfood-order-service/internal/handlers"
 	"github.com/ssklv/mixfood-order-service/internal/infrastructure"
 	"github.com/ssklv/mixfood-order-service/internal/usecase"
 	"github.com/ssklv/pizza-shared/pkg/logger"
+
+	_ "github.com/ssklv/mixfood-order-service/docs"
 )
 
 type zapAdapter struct{}
 
-func (za *zapAdapter) Error(msg string, fields ...any) { logger.Logger.Error(msg) }
-func (za *zapAdapter) Warn(msg string, fields ...any)  { logger.Logger.Warn(msg) }
+func (za *zapAdapter) Info(msg string, fields ...any) {
+	if logger.Logger != nil {
+		logger.Logger.Sugar().Infow(msg, fields...)
+	}
+}
 
-// @title Mixfood Order Service API
-// @version 1.0
-// @description API для управления заказами
-// @host localhost:8083
-// @BasePath /
-// @securityDefinitions.apikey CookieAuth
-// @in cookie
-// @name jwt
+func (za *zapAdapter) Error(msg string, fields ...any) {
+	if logger.Logger != nil {
+		logger.Logger.Sugar().Errorw(msg, fields...)
+	}
+}
+
+func (za *zapAdapter) Warn(msg string, fields ...any) {
+	if logger.Logger != nil {
+		logger.Logger.Sugar().Warnw(msg, fields...)
+	}
+}
+
+// @title                       Mixfood Order Service API
+// @version                     1.0
+// @description                 API для управления заказами
+// @host                        localhost:8083
+// @BasePath                    /
+// @securityDefinitions.apikey  BearerAuth
+// @in                          header
+// @name                        Authorization
+// @description                 Введите токен в формате: Bearer <token>
 func main() {
 	logger.InitLogger()
-	defer logger.Logger.Sync()
+	if logger.Logger != nil {
+		defer logger.Logger.Sync()
+	}
 
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load(); err != nil && logger.Logger != nil {
 		logger.Logger.Warn("Файл .env не найден")
 	}
 
 	cfg := config.Load()
-	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
-
-	app := fiber.New(fiber.Config{
-		AppName: "MixFood Order Service v1.0",
-	})
-
-	app.Get("/swagger/*", adaptor.HTTPHandler(httpSwagger.Handler(
-		httpSwagger.URL("/docs/swagger.json"),
-	)))
-
-	app.Get("/docs/swagger.json", func(c fiber.Ctx) error {
-		return c.SendFile("./docs/swagger.json")
-	})
-
-	app.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
-		AllowCredentials: true,
-		AllowHeaders:     []string{"Content-Type", "Authorization"},
-	}))
+	logAdapter := &zapAdapter{}
 
 	conn, err := infrastructure.Connect(cfg.DatabaseURL)
-	if err != nil {
+	if err != nil && logger.Logger != nil {
 		logger.Logger.Fatal("Ошибка БД: " + err.Error())
 	}
 	defer conn.Close()
 
-	tokenProvider := infrastructure.NewTokenProvider(cfg.JWTSecret)
-	wsHub := infrastructure.NewWsHub()
+	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
+	// Инициализация слоев
+	tokenProvider := infrastructure.NewTokenProvider(cfg.JWTSecret)
+	wsHub := infrastructure.NewWsHub(logAdapter)
 	orderRepo := infrastructure.NewOrderRepository(conn, psql)
 	orderUsecase := usecase.NewOrderUsecase(orderRepo, wsHub)
 
-	logAdapter := &zapAdapter{}
+	app := fiber.New(fiber.Config{AppName: "MixFood Order Service"})
 
-	orderHandler := handlers.NewOrderHandler(orderUsecase, tokenProvider, wsHub, logAdapter)
-	orderHandler.RegisterRoutes(app)
+	handlers.ConfigureApp(app, orderUsecase, tokenProvider, wsHub, logAdapter)
 
-	logger.Logger.Info(fmt.Sprintf("Сервер стартовал на :%s", cfg.ServerPort))
-	if err := app.Listen(":" + cfg.ServerPort); err != nil {
+	if logger.Logger != nil {
+		logger.Logger.Info(fmt.Sprintf("Сервер заказа запущен на порту :%s", cfg.ServerPort))
+	}
+
+	if err := app.Listen(":" + cfg.ServerPort); err != nil && logger.Logger != nil {
 		logger.Logger.Fatal("Сервер упал: " + err.Error())
 	}
 }
