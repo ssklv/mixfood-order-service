@@ -7,11 +7,10 @@ import (
 )
 
 type OrderRepository interface {
-	Create(ctx context.Context, order *domain.Order) error // Соответствует вызову в Usecase
-	GetOrder(ctx context.Context, id int64) (*domain.Order, error)
+	Create(ctx context.Context, order *domain.Order) error
 	GetByUserID(ctx context.Context, userID int64, limit, offset int) ([]domain.Order, error)
 	GetAllOrders(ctx context.Context, limit, offset int) ([]domain.Order, error)
-	UpdateStatus(ctx context.Context, id int64, status string) (int64, error) // Оставили возврат userID
+	UpdateStatus(ctx context.Context, id int64, status string) (int64, error)
 }
 
 type NotificationHub interface {
