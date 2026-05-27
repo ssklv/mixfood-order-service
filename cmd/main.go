@@ -1,5 +1,6 @@
 package main
 
+//swag init -g cmd/main.go --output docs
 import (
 	"fmt"
 
@@ -38,13 +39,13 @@ func (za *zapAdapter) Warn(msg string, fields ...any) {
 
 // @title                       Mixfood Order Service API
 // @version                     1.0
-// @description                 API для управления заказами
+// @description                 API for order management and processing
 // @host                        localhost:8083
 // @BasePath                    /
 // @securityDefinitions.apikey  BearerAuth
 // @in                          header
 // @name                        Authorization
-// @description                 Введите токен в формате: Bearer <token>
+// @description                 Enter token in format: Bearer <token>
 func main() {
 	logger.InitLogger()
 	if logger.Logger != nil {
@@ -52,21 +53,24 @@ func main() {
 	}
 
 	if err := godotenv.Load(); err != nil && logger.Logger != nil {
-		logger.Logger.Warn("Файл .env не найден")
+		logger.Logger.Warn(".env file not found")
 	}
 
 	cfg := config.Load()
 	logAdapter := &zapAdapter{}
 
 	conn, err := infrastructure.Connect(cfg.DatabaseURL)
-	if err != nil && logger.Logger != nil {
-		logger.Logger.Fatal("Ошибка БД: " + err.Error())
+	if err != nil {
+		if logger.Logger != nil {
+			logger.Logger.Fatal("Database connection error: " + err.Error())
+		}
+		panic("Database connection error: " + err.Error())
 	}
 	defer conn.Close()
 
 	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
-	// Инициализация слоев
+	// Layer Initialization
 	tokenProvider := infrastructure.NewTokenProvider(cfg.JWTSecret)
 	wsHub := infrastructure.NewWsHub(logAdapter)
 	orderRepo := infrastructure.NewOrderRepository(conn, psql)
@@ -77,10 +81,13 @@ func main() {
 	handlers.ConfigureApp(app, orderUsecase, tokenProvider, wsHub, logAdapter)
 
 	if logger.Logger != nil {
-		logger.Logger.Info(fmt.Sprintf("Сервер заказа запущен на порту :%s", cfg.ServerPort))
+		logger.Logger.Info(fmt.Sprintf("Order service started on port :%s", cfg.ServerPort))
 	}
 
-	if err := app.Listen(":" + cfg.ServerPort); err != nil && logger.Logger != nil {
-		logger.Logger.Fatal("Сервер упал: " + err.Error())
+	if err := app.Listen(":" + cfg.ServerPort); err != nil {
+		if logger.Logger != nil {
+			logger.Logger.Fatal("Server failed to start: " + err.Error())
+		}
+		panic("Server failed to start: " + err.Error())
 	}
 }

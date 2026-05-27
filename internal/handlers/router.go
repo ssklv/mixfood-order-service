@@ -44,7 +44,6 @@ func ConfigureApp(
 	authMiddleware := NewAuthMiddleware(tokenProvider, log)
 	apiGroup := app.Group("/api")
 
-	// ВАЖНО: передаем все 4 аргумента
 	handler := NewOrderHandler(orderUC, tokenProvider, wsHub, log)
 	handler.RegisterRoutes(apiGroup, authMiddleware)
 }

@@ -39,16 +39,20 @@ func (h *OrderHandler) adminRequired(c fiber.Ctx) error {
 	return c.Next()
 }
 
-// @Summary Создать новый заказ
+// @Summary Create a new order
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param input body domain.CreateOrderInput true "Данные заказа"
+// @Param input body domain.CreateOrderInput true "Order details"
 // @Success 201 {object} domain.Order
 // @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /api/orders [post]
 func (h *OrderHandler) CreateOrder(c fiber.Ctx) error {
-	userID := c.Locals("userID").(int64)
+	userID, ok := c.Locals("userID").(int64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "Unauthorized"})
+	}
 
 	var input domain.CreateOrderInput
 	if err := c.Bind().Body(&input); err != nil {
@@ -67,17 +71,28 @@ func (h *OrderHandler) CreateOrder(c fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(order)
 }
 
-// @Summary Получить список заказов пользователя
+// @Summary Get user's orders
 // @Security BearerAuth
 // @Produce json
-// @Param limit query int false "Лимит записей"
-// @Param offset query int false "Смещение"
+// @Param limit query int false "Limit of records"
+// @Param offset query int false "Offset of records"
 // @Success 200 {array} domain.Order
+// @Failure 500 {object} ErrorResponse
 // @Router /api/orders [get]
 func (h *OrderHandler) GetUserOrders(c fiber.Ctx) error {
-	userID := c.Locals("userID").(int64)
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	offset, _ := strconv.Atoi(c.Query("offset", "0"))
+	userID, ok := c.Locals("userID").(int64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "Unauthorized"})
+	}
+
+	limit, err := strconv.Atoi(c.Query("limit", "10"))
+	if err != nil {
+		limit = 10
+	}
+	offset, err := strconv.Atoi(c.Query("offset", "0"))
+	if err != nil {
+		offset = 0
+	}
 
 	orders, err := h.uc.GetUserOrders(c.Context(), userID, limit, offset)
 	if err != nil {
@@ -87,18 +102,22 @@ func (h *OrderHandler) GetUserOrders(c fiber.Ctx) error {
 	return c.JSON(orders)
 }
 
-// @Summary Обновить статус заказа (Только админ)
+// @Summary Update order status (Admin only)
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path int true "ID заказа"
-// @Param input body domain.UpdateStatusInput true "Статус"
+// @Param id path int true "Order ID"
+// @Param input body domain.UpdateStatusInput true "New status"
 // @Success 200 {object} MessageResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 403 {object} ErrorResponse
 // @Router /api/admin/orders/{id}/status [patch]
 func (h *OrderHandler) UpdateStatus(c fiber.Ctx) error {
-	orderID, _ := strconv.ParseInt(c.Params("id"), 10, 64)
+	orderID, err := strconv.ParseInt(c.Params("id"), 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid order ID"})
+	}
+
 	var input domain.UpdateStatusInput
 	if err := c.Bind().Body(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid request body"})
@@ -110,14 +129,23 @@ func (h *OrderHandler) UpdateStatus(c fiber.Ctx) error {
 	return c.JSON(MessageResponse{Message: "Status updated"})
 }
 
-// @Summary Получить все заказы (Только админ)
+// @Summary Get all orders (Admin only)
 // @Security BearerAuth
 // @Produce json
+// @Param limit query int false "Limit of records"
+// @Param offset query int false "Offset of records"
 // @Success 200 {array} domain.Order
+// @Failure 500 {object} ErrorResponse
 // @Router /api/admin/orders [get]
 func (h *OrderHandler) GetAdminOrders(c fiber.Ctx) error {
-	limit, _ := strconv.Atoi(c.Query("limit", "20"))
-	offset, _ := strconv.Atoi(c.Query("offset", "0"))
+	limit, err := strconv.Atoi(c.Query("limit", "20"))
+	if err != nil {
+		limit = 20
+	}
+	offset, err := strconv.Atoi(c.Query("offset", "0"))
+	if err != nil {
+		offset = 0
+	}
 
 	orders, err := h.uc.GetAdminOrders(c.Context(), limit, offset)
 	if err != nil {

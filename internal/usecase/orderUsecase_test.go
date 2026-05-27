@@ -1,5 +1,6 @@
 package usecase
 
+//go test -coverprofile=coverage.out ./internal/usecase/...
 import (
 	"context"
 	"testing"
@@ -18,7 +19,7 @@ func TestCreateOrder_Success(t *testing.T) {
 
 	input := domain.CreateOrderInput{
 		AddressID: 1,
-		Items: []domain.OrderItem{
+		Items: []domain.CreateOrderItemInput{
 			{ProductID: 1, Price: 100.0, Quantity: 2},
 		},
 	}
@@ -45,7 +46,7 @@ func TestUpdateOrderStatus_Success(t *testing.T) {
 	mockRepo.On("UpdateStatus", ctx, orderID, newStatus).Return(userID, nil)
 
 	mockHub.On("NotifyUser", userID, mock.MatchedBy(func(msg map[string]interface{}) bool {
-		return msg["status"] == newStatus && msg["order_id"] == orderID
+		return msg["status"] == newStatus && msg["orderId"] == orderID
 	})).Return()
 
 	err := uc.UpdateOrderStatus(ctx, orderID, domain.UpdateStatusInput{Status: newStatus})

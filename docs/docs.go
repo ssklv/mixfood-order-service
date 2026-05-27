@@ -25,15 +25,35 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Получить все заказы (Только админ)",
+                "summary": "Get all orders (Admin only)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit of records",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset of records",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.Order"
+                                "$ref": "#/definitions/domain.Order"
                             }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
@@ -52,22 +72,22 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Обновить статус заказа (Только админ)",
+                "summary": "Update order status (Admin only)",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "ID заказа",
+                        "description": "Order ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Статус",
+                        "description": "New status",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.UpdateStatusInput"
+                            "$ref": "#/definitions/domain.UpdateStatusInput"
                         }
                     }
                 ],
@@ -75,19 +95,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.MessageResponse"
+                            "$ref": "#/definitions/handlers.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
@@ -103,17 +123,17 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Получить список заказов пользователя",
+                "summary": "Get user's orders",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Лимит записей",
+                        "description": "Limit of records",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Смещение",
+                        "description": "Offset of records",
                         "name": "offset",
                         "in": "query"
                     }
@@ -124,8 +144,14 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.Order"
+                                "$ref": "#/definitions/domain.Order"
                             }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
@@ -142,15 +168,15 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Создать новый заказ",
+                "summary": "Create a new order",
                 "parameters": [
                     {
-                        "description": "Данные заказа",
+                        "description": "Order details",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.CreateOrderInput"
+                            "$ref": "#/definitions/domain.CreateOrderInput"
                         }
                     }
                 ],
@@ -158,13 +184,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.Order"
+                            "$ref": "#/definitions/domain.Order"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_handlers.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
@@ -172,71 +204,33 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_ssklv_mixfood-order-service_internal_domain.CreateOrderInput": {
+        "domain.CreateOrderInput": {
             "type": "object",
             "properties": {
-                "address_id": {
+                "addressId": {
                     "type": "integer"
                 },
-                "delivery_time": {
+                "deliveryTime": {
                     "type": "string"
                 },
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.OrderItem"
-                    }
-                }
-            }
-        },
-        "github_com_ssklv_mixfood-order-service_internal_domain.Order": {
-            "type": "object",
-            "properties": {
-                "address_id": {
-                    "type": "integer"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "delivery_time": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.OrderItem"
+                        "$ref": "#/definitions/domain.CreateOrderItemInput"
                     }
                 },
-                "status": {
-                    "type": "string"
-                },
-                "total_price": {
+                "totalPrice": {
                     "type": "number"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
                 }
             }
         },
-        "github_com_ssklv_mixfood-order-service_internal_domain.OrderItem": {
+        "domain.CreateOrderItemInput": {
             "type": "object",
             "properties": {
-                "id": {
-                    "type": "integer"
-                },
-                "order_id": {
-                    "type": "integer"
-                },
                 "price": {
                     "type": "number"
                 },
-                "product_id": {
+                "productId": {
                     "type": "integer"
                 },
                 "quantity": {
@@ -244,7 +238,62 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_ssklv_mixfood-order-service_internal_domain.UpdateStatusInput": {
+        "domain.Order": {
+            "type": "object",
+            "properties": {
+                "addressId": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "deliveryTime": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.OrderItem"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "totalPrice": {
+                    "type": "number"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.OrderItem": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "orderId": {
+                    "type": "integer"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "productId": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.UpdateStatusInput": {
             "type": "object",
             "properties": {
                 "status": {
@@ -252,7 +301,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handlers.ErrorResponse": {
+        "handlers.ErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -260,7 +309,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handlers.MessageResponse": {
+        "handlers.MessageResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -268,17 +317,25 @@ const docTemplate = `{
                 }
             }
         }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Enter token in format: Bearer \u003ctoken\u003e",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
+	Version:          "1.0",
+	Host:             "localhost:8083",
+	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "Mixfood Order Service API",
+	Description:      "API for order management and processing",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

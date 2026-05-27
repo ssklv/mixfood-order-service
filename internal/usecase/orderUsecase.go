@@ -12,10 +12,7 @@ type OrderUsecase struct {
 }
 
 func NewOrderUsecase(repo OrderRepository, hub NotificationHub) *OrderUsecase {
-	return &OrderUsecase{
-		repo: repo,
-		hub:  hub,
-	}
+	return &OrderUsecase{repo: repo, hub: hub}
 }
 
 func (u *OrderUsecase) CreateOrder(ctx context.Context, userID int64, input domain.CreateOrderInput) (*domain.Order, error) {
@@ -24,16 +21,24 @@ func (u *OrderUsecase) CreateOrder(ctx context.Context, userID int64, input doma
 	}
 
 	var totalPrice float64
-	for i := range input.Items {
-		totalPrice += input.Items[i].Price * float64(input.Items[i].Quantity)
+	var orderItems []domain.OrderItem
+
+	for _, item := range input.Items {
+		totalPrice += item.Price * float64(item.Quantity)
+		orderItems = append(orderItems, domain.OrderItem{
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			Price:     item.Price,
+		})
 	}
 
 	order := &domain.Order{
-		UserID:     userID,
-		AddressID:  input.AddressID,
-		TotalPrice: totalPrice,
-		Status:     "new",
-		Items:      input.Items,
+		UserID:       userID,
+		AddressID:    input.AddressID,
+		TotalPrice:   totalPrice,
+		Status:       "new",
+		DeliveryTime: input.DeliveryTime,
+		Items:        orderItems,
 	}
 
 	if err := u.repo.Create(ctx, order); err != nil {
@@ -51,11 +56,12 @@ func (u *OrderUsecase) UpdateOrderStatus(ctx context.Context, orderID int64, inp
 	if err != nil {
 		return err
 	}
+
 	u.hub.NotifyUser(userID, map[string]interface{}{
-		"type":     "ORDER_STATUS_CHANGED",
-		"order_id": orderID,
-		"status":   input.Status,
-		"message":  "Your order status has been updated to: " + input.Status,
+		"type":    "ORDER_STATUS_CHANGED",
+		"orderId": orderID,
+		"status":  input.Status,
+		"message": "Your order status has been updated to: " + input.Status,
 	})
 
 	return nil

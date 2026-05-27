@@ -10,6 +10,19 @@ import (
 	"github.com/ssklv/mixfood-order-service/internal/domain"
 )
 
+var (
+	orderColumns = []string{
+		"id",
+		"user_id",
+		"address_id",
+		"total_price",
+		"status",
+		"delivery_time",
+		"created_at",
+		"updated_at",
+	}
+)
+
 type orderRepository struct {
 	db   *pgxpool.Pool
 	psql sq.StatementBuilderType
@@ -85,8 +98,8 @@ func (r *orderRepository) UpdateStatus(ctx context.Context, orderID int64, statu
 }
 
 func (r *orderRepository) GetAllOrders(ctx context.Context, limit, offset int) ([]domain.Order, error) {
-	// Используем squirrel для построения запроса
-	query, args, err := r.psql.Select("id", "user_id", "address_id", "total_price", "status", "created_at").
+	query, args, err := r.psql.
+		Select("id", "user_id", "address_id", "total_price", "status", "created_at").
 		From("orders").
 		Limit(uint64(limit)).
 		Offset(uint64(offset)).
@@ -117,7 +130,7 @@ func (r *orderRepository) GetAllOrders(ctx context.Context, limit, offset int) (
 
 func (r *orderRepository) GetByUserID(ctx context.Context, userID int64, limit, offset int) ([]domain.Order, error) {
 	sql, args, err := r.psql.
-		Select("id", "user_id", "address_id", "total_price", "status", "delivery_time", "created_at", "updated_at").
+		Select(orderColumns...).
 		From("orders").
 		Where(sq.Eq{"user_id": userID}).
 		Limit(uint64(limit)).
@@ -148,7 +161,7 @@ func (r *orderRepository) GetByUserID(ctx context.Context, userID int64, limit, 
 
 func (r *orderRepository) GetOrder(ctx context.Context, id int64) (*domain.Order, error) {
 	sql, args, err := r.psql.
-		Select("id", "user_id", "address_id", "total_price", "status", "delivery_time", "created_at", "updated_at").
+		Select(orderColumns...).
 		From("orders").
 		Where(sq.Eq{"id": id}).
 		ToSql()
@@ -161,5 +174,26 @@ func (r *orderRepository) GetOrder(ctx context.Context, id int64) (*domain.Order
 	if err != nil {
 		return nil, err
 	}
+
+	itemsSql, args, _ := r.psql.
+		Select("id", "order_id", "product_id", "quantity", "price").
+		From("order_items").
+		Where(sq.Eq{"order_id": id}).
+		ToSql()
+
+	rows, err := r.db.Query(ctx, itemsSql, args...)
+	if err != nil {
+		return &o, nil
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var item domain.OrderItem
+		if err := rows.Scan(&item.ID, &item.OrderID, &item.ProductID, &item.Quantity, &item.Price); err != nil {
+			continue
+		}
+		o.Items = append(o.Items, item)
+	}
+
 	return &o, nil
 }

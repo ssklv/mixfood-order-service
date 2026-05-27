@@ -1,125 +1,93 @@
+basePath: /
 definitions:
-  github_com_ssklv_mixfood-order-service_internal_domain.CreateOrderInput:
+  domain.CreateOrderInput:
     properties:
-      address_id:
+      addressId:
         type: integer
-      delivery_time:
+      deliveryTime:
         type: string
       items:
         items:
-          $ref: '#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.OrderItem'
+          $ref: '#/definitions/domain.CreateOrderItemInput'
         type: array
-    type: object
-  github_com_ssklv_mixfood-order-service_internal_domain.Order:
-    properties:
-      address_id:
-        type: integer
-      created_at:
-        type: string
-      delivery_time:
-        type: string
-      id:
-        type: integer
-      items:
-        items:
-          $ref: '#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.OrderItem'
-        type: array
-      status:
-        type: string
-      total_price:
+      totalPrice:
         type: number
-      updated_at:
-        type: string
-      user_id:
-        type: integer
     type: object
-  github_com_ssklv_mixfood-order-service_internal_domain.OrderItem:
+  domain.CreateOrderItemInput:
     properties:
-      id:
-        type: integer
-      order_id:
-        type: integer
       price:
         type: number
-      product_id:
+      productId:
         type: integer
       quantity:
         type: integer
     type: object
-  github_com_ssklv_mixfood-order-service_internal_domain.UpdateStatusInput:
+  domain.Order:
+    properties:
+      addressId:
+        type: integer
+      createdAt:
+        type: string
+      deliveryTime:
+        type: string
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/domain.OrderItem'
+        type: array
+      status:
+        type: string
+      totalPrice:
+        type: number
+      updatedAt:
+        type: string
+      userId:
+        type: integer
+    type: object
+  domain.OrderItem:
+    properties:
+      id:
+        type: integer
+      orderId:
+        type: integer
+      price:
+        type: number
+      productId:
+        type: integer
+      quantity:
+        type: integer
+    type: object
+  domain.UpdateStatusInput:
     properties:
       status:
         type: string
     type: object
-  internal_handlers.ErrorResponse:
+  handlers.ErrorResponse:
     properties:
       error:
         type: string
     type: object
-  internal_handlers.MessageResponse:
+  handlers.MessageResponse:
     properties:
       message:
         type: string
     type: object
+host: localhost:8083
 info:
   contact: {}
+  description: API for order management and processing
+  title: Mixfood Order Service API
+  version: "1.0"
 paths:
   /api/admin/orders:
     get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.Order'
-            type: array
-      security:
-      - BearerAuth: []
-      summary: Получить все заказы (Только админ)
-  /api/admin/orders/{id}/status:
-    patch:
-      consumes:
-      - application/json
       parameters:
-      - description: ID заказа
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Статус
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.UpdateStatusInput'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/internal_handlers.MessageResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/internal_handlers.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/internal_handlers.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Обновить статус заказа (Только админ)
-  /api/orders:
-    get:
-      parameters:
-      - description: Лимит записей
+      - description: Limit of records
         in: query
         name: limit
         type: integer
-      - description: Смещение
+      - description: Offset of records
         in: query
         name: offset
         type: integer
@@ -130,33 +98,108 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.Order'
+              $ref: '#/definitions/domain.Order'
             type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Получить список заказов пользователя
-    post:
+      summary: Get all orders (Admin only)
+  /api/admin/orders/{id}/status:
+    patch:
       consumes:
       - application/json
       parameters:
-      - description: Данные заказа
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New status
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.CreateOrderInput'
+          $ref: '#/definitions/domain.UpdateStatusInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update order status (Admin only)
+  /api/orders:
+    get:
+      parameters:
+      - description: Limit of records
+        in: query
+        name: limit
+        type: integer
+      - description: Offset of records
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Order'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user's orders
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Order details
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateOrderInput'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ssklv_mixfood-order-service_internal_domain.Order'
+            $ref: '#/definitions/domain.Order'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_handlers.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Создать новый заказ
+      summary: Create a new order
+securityDefinitions:
+  BearerAuth:
+    description: 'Enter token in format: Bearer <token>'
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
